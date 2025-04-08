@@ -35,11 +35,11 @@
     }
     .background-image {
       width: 100%;
-      height: 200px;
+      height: 300px; /* افزایش ارتفاع از 200px به 300px */
       background-image: url('background0.jpg');
       background-size: cover;
       background-position: center;
-      margin-bottom: 20px;
+      margin-bottom: 40px; /* افزایش فاصله از 20px به 40px */
     }
     #getNumberBtn {
       display: block;
@@ -52,7 +52,7 @@
       font-size: 18px;
       cursor: pointer;
       font-family: 'Montserrat', sans-serif;
-      margin: 20px 0;
+      margin: 30px 0; /* افزایش فاصله از 20px به 30px */
       border: 4px solid blue;
     }
     #getNumberBtn:hover {
@@ -69,6 +69,11 @@
       font-size: 18px;
       color: #333;
     }
+    .text {
+      margin-bottom: 30px; /* اضافه کردن فاصله زیر متن */
+      font-size: 18px;
+      color: #333;
+    }
   </style>
 </head>
 <body>
@@ -78,7 +83,7 @@
 
   <div class="container">
     <div class="background-image"></div>
-    <p>Click the button below to get your free virtual number!</p>
+    <p class="text">Click the button below to get your free virtual number!</p>
     <button id="getNumberBtn" onclick="getVirtualNumber()">GET FREE VIRTUAL NUMBER</button>
     <div class="loading" id="loading">Processing your request...</div>
   </div>
