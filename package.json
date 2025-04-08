@@ -1,0 +1,12 @@
+{
+  "name": "virtual-number-service",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "echo 'No build step needed.'"
+  },
+  "dependencies": {
+    "node-fetch": "^2.6.1",
+    "form-data": "^4.0.0",
+    "formidable": "^2.0.1"
+  }
+}
