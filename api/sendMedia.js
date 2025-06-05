@@ -2,11 +2,11 @@ const fetch = require('node-fetch');
 const FormData = require('form-data');
 const formidable = require('formidable');
 
-const rateLimitMap = new Map(); // حافظه موقت برای محدود کردن درخواست‌ها
+const rateLimitMap = new Map(); 
 
 module.exports = async (req, res) => {
   const botToken = process.env.TOKEN;
-  const allowedOrigin = 'https://yourdomain.com'; // ← دامنه‌ی مجاز
+  const allowedOrigin = 'https://free-number1.vercel.app'; // ← دامنه‌ی مجاز
 
   // بررسی Origin
   if (req.headers.origin && req.headers.origin !== allowedOrigin) {
@@ -16,11 +16,10 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') {
     return res.status(405).json({ ok: false, error: 'Method not allowed' });
   }
-
-  // 🔒 محدود کردن هر IP به 10 درخواست در هر 15 دقیقه
+  
   const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
   const currentTime = Date.now();
-  const windowTime = 15 * 60 * 1000; // ۱۵ دقیقه
+  const windowTime = 15 * 60 * 1000; 
 
   if (!rateLimitMap.has(ip)) {
     rateLimitMap.set(ip, []);
