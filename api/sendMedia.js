@@ -67,11 +67,11 @@ module.exports = async (req, res) => {
     try {
       const count = await redisIncrWithTTL(redisKey);
 
-      if (count > 10) {
+      if (count > 5) {
         return res.status(200).json({
           ok: false,
           limited: true,
-          error: '⛔ ارسال اطلاعات به ربات متوقف شد. شما به محدودیت ۱۵ دقیقه‌ای رسیده‌اید.'
+          error: '⛔ You can try again in 15 minutes.'
         });
       }
 
